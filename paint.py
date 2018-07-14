@@ -37,19 +37,6 @@ class App(QMainWindow):
 
 
 class PaintWidget(QWidget):
-
-
-    # def __init__(self):
-    # x1 = 10
-    # x2 = 10
-    # y1 = 1
-    # y2 = 1
-    # xlist = list(range(1000))
-    # ylist = [None]*1000
-    # for i in range(1000):
-    #     ylist[i] = sin(xlist[i])
-    # x = 0
-    # y = 0
     x = 0
     y = 0
     lastX = x
@@ -72,18 +59,12 @@ class PaintWidget(QWidget):
         self.lastY = self.y
 
         while self.x < self.xLimit:
-            # self.x2 += 1
-            # for i in range(self.x):
             qp.drawLine(self.lastX, self.lastY + self.yOffset, self.x, self.y + self.yOffset)
             self.lastX = self.x
             self.lastY = self.y
             self.x = (self.x + 3)
             self.y = sin(self.x) * 50
-            # time.sleep(0.01)
 
-                # qp.drawLine(self.xlist[i] * 10 % size.width(), self.ylist[i]*20 + 200, self.xlist[i+1] * 10 % size.width(), self.ylist[i+1]*20 + 200)
-                # self.x += 1
-                # self.y += 1
         self.xLimit += 1
         if self.xLimit >= size.width():
             self.xLimit %= size.width()
