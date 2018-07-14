@@ -6,6 +6,7 @@ from PyQt5.QtCore import Qt
 import random
 from math import sin
 import time
+import numpy as np
 
 class App(QMainWindow):
 
@@ -42,13 +43,14 @@ class PaintWidget(QWidget):
     lastX = x
     lastY = y
     yOffset = 500
-    channelCount = 1
+    channelCount = 4
     xMargin = 100
     xLimit = 5
     # xlist = list(range(500)*40)
     # ylist = [None] * 2000
-    samplingRate = 500
-    dataBuffer = [0 for x in range(400)]
+    samplingRate = 400
+    # dataBuffer = [0 for x in range(samplingRate)]
+    dataBuffer = np.zeros(shape=(channelCount,samplingRate))
     # for i in range(2000):
     #     dataBuffer[i] = sin(i) * 20
     idx = 0
@@ -58,7 +60,7 @@ class PaintWidget(QWidget):
     def paintEvent(self, event):
         qp = QPainter(self)
         qp.setPen(Qt.black)
-        self.yOffset = self.size().height() / 2
+        self.yOffset = self.size().height() / self.channelCount / 2
         channelHeight = self.size().height() / self.channelCount
 
         self.counter += 1
@@ -67,12 +69,13 @@ class PaintWidget(QWidget):
             self.counter = 0
         else:
             self.increment = 0
-        self.idx = (self.idx + self.increment) % len(self.dataBuffer)
-        self.dataBuffer[self.idx] = sin(random.randint(1, 100)) * channelHeight / 3
+        self.idx = (self.idx + self.increment) % self.dataBuffer.shape[1]
 
-        qp.drawText(10, self.yOffset, 'EEG Channel')
-        for k in range(len(self.dataBuffer)-1):
-            qp.drawLine(k * 4 + self.xMargin, self.dataBuffer[k] + self.yOffset, (k+1)*4 + self.xMargin, self.dataBuffer[k+1] + self.yOffset)
+        for m in range(self.channelCount):
+            self.dataBuffer[m, self.idx] = sin(random.randint(1, 100)) * channelHeight / 3
+            qp.drawText(10, m * channelHeight + self.yOffset, 'Channel {}'.format(m+1))
+            for k in range(self.dataBuffer.shape[1]-1):
+                qp.drawLine(k * 4 + self.xMargin, self.dataBuffer[m, k] +  m * channelHeight + self.yOffset, (k+1)*4 + self.xMargin, self.dataBuffer[m, k+1] + m * channelHeight + self.yOffset)
         # self.x = 0
         # self.y = 0
         # self.lastX = self.x
