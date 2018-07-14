@@ -4,6 +4,7 @@ from PyQt5.QtGui import QPainter, QColor, QPen
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt
 import random
+from math import sin
 
 class App(QMainWindow):
 
@@ -38,10 +39,16 @@ class PaintWidget(QWidget):
 
 
     # def __init__(self):
-    x1 = 1
-    x2 = 2
+    x1 = 10
+    x2 = 10
     y1 = 1
-    y2 = 2
+    y2 = 1
+    xlist = list(range(1000))
+    ylist = [None]*1000
+    for i in range(1000):
+        ylist[i] = sin(xlist[i])
+    x = 0
+    y = 0
 
     def paintEvent(self, event):
         qp = QPainter(self)
@@ -51,12 +58,19 @@ class PaintWidget(QWidget):
     
     #   for i in range(1024):
     #   while True:
-        self.x2 += 5
-        self.y2 += 2
+        self.x2 += 1
+        # self.y2 += 2
 #   x = random.randint(1, size.width()-1)
 #   y = random.randint(1, size.height()-1)
 #   qp.drawPoint(x, y)
-        qp.drawLine(self.x1, self.y1, self.x2, self.y2)
+        # qp.drawLine(self.x1, self.y1, self.x2, sin(self.x2) * 100)
+        # self.x1 = self.x2
+        # self.y1 = sin(self.x2) * 100
+        for i in range(self.x):
+            qp.drawLine(self.xlist[i] * 10, 200, self.xlist[i+1] * 10, self.ylist[i+1]*100 + 200)
+        self.x += 1
+        self.y += 1
+        self.update()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
