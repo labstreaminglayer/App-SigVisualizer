@@ -45,29 +45,36 @@ class PaintWidget(QWidget):
     xLimit = 5
     # xlist = list(range(500)*40)
     # ylist = [None] * 2000
+    samplingRate = 500
+    dataBuffer = [0 for x in range(1800)]
     # for i in range(2000):
-    #     ylist[i] = sin(xlist[i]) * 20
+    #     dataBuffer[i] = sin(i) * 20
+    idx = 0
 
     def paintEvent(self, event):
         qp = QPainter(self)
         qp.setPen(Qt.black)
         size = self.size()
 
-        self.x = 0
-        self.y = 0
-        self.lastX = self.x
-        self.lastY = self.y
+        self.idx = (self.idx + 1) % len(self.dataBuffer)
+        self.dataBuffer[self.idx] = sin(random.randint(1, 100)) * 50
+        for k in range(len(self.dataBuffer)-1):
+            qp.drawLine(k, self.dataBuffer[k] + self.yOffset, k+1, self.dataBuffer[k+1] + self.yOffset)
+        # self.x = 0
+        # self.y = 0
+        # self.lastX = self.x
+        # self.lastY = self.y
 
-        while self.x < self.xLimit:
-            qp.drawLine(self.lastX, self.lastY + self.yOffset, self.x, self.y + self.yOffset)
-            self.lastX = self.x
-            self.lastY = self.y
-            self.x = (self.x + 3)
-            self.y = sin(self.x) * 50
+        # while self.x < self.xLimit:
+        #     qp.drawLine(self.lastX, self.lastY + self.yOffset, self.x, self.y + self.yOffset)
+        #     self.lastX = self.x
+        #     self.lastY = self.y
+        #     self.x = (self.x + 3)
+        #     self.y = sin(self.x) * 50
 
-        self.xLimit += 1
-        if self.xLimit >= size.width():
-            self.xLimit %= size.width()
+        # self.xLimit += 1
+        # if self.xLimit >= size.width():
+        #     self.xLimit %= size.width()
         self.update()
 
 if __name__ == '__main__':
