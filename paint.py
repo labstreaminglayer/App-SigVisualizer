@@ -4,6 +4,7 @@ from PyQt5.QtGui import QPainter, QColor, QPen
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt
 import random
+import math
 from math import sin
 import time
 import numpy as np
@@ -54,28 +55,29 @@ class PaintWidget(QWidget):
     # for i in range(2000):
     #     dataBuffer[i] = sin(i) * 20
     idx = 0
-    increment = 0
+    increment = 1
     counter = 0
 
     def paintEvent(self, event):
         qp = QPainter(self)
-        qp.setPen(Qt.black)
+        qp.setPen(Qt.blue)
         self.yOffset = self.size().height() / self.channelCount / 2
         channelHeight = self.size().height() / self.channelCount
 
-        self.counter += 1
-        if self.counter == 4:
-            self.increment = 1
-            self.counter = 0
-        else:
-            self.increment = 0
+        # self.counter += 1
+        # if self.counter == 4:
+        #     self.increment = 1
+        #     self.counter = 0
+        # else:
+        #     self.increment = 0
         self.idx = (self.idx + self.increment) % self.dataBuffer.shape[1]
 
         for m in range(self.channelCount):
-            self.dataBuffer[m, self.idx] = sin(random.randint(1, 100)) * channelHeight / 3
+            self.dataBuffer[m, self.idx] = (sin(2.0 * math.pi * self.idx) + random.random()) * channelHeight / 3
             qp.drawText(10, m * channelHeight + self.yOffset, 'Channel {}'.format(m+1))
             for k in range(self.dataBuffer.shape[1]-1):
-                qp.drawLine(k * 4 + self.xMargin, self.dataBuffer[m, k] +  m * channelHeight + self.yOffset, (k+1)*4 + self.xMargin, self.dataBuffer[m, k+1] + m * channelHeight + self.yOffset)
+                qp.drawLine(k * 4 + self.xMargin, self.dataBuffer[m, k] +
+                m * channelHeight + self.yOffset / 2, (k+1)*4 + self.xMargin, self.dataBuffer[m, k+1] + m * channelHeight + self.yOffset / 2)
         # self.x = 0
         # self.y = 0
         # self.lastX = self.x
