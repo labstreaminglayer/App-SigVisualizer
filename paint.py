@@ -55,6 +55,7 @@ class PaintWidget(QWidget):
     channelCount = int(streams[0].channel_count())
     timeStampsBuffer = np.zeros(shape=(channelCount,samplingRate))
     dataBuffer = np.zeros(shape=(channelCount,samplingRate))
+    scaling = 10
 
     def paintEvent(self, event):
         qp = QPainter(self)
@@ -69,7 +70,7 @@ class PaintWidget(QWidget):
             for c in range(len(timestamps)):
                 self.idx = (self.idx + self.increment) % self.dataBuffer.shape[1]
                 for m in range(self.channelCount):
-                    self.dataBuffer[m, self.idx] = chunk[c][m] * 10
+                    self.dataBuffer[m, self.idx] = chunk[c][m] * self.scaling
 
         for m in range(self.channelCount):
             qp.drawText(10, m * channelHeight + self.yOffset, 'Channel {}'.format(m+1))
