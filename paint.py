@@ -5,9 +5,10 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt
 import random
 import math
-from math import sin
+from math import *
 import time
 import numpy as np
+from pylsl import StreamInlet, resolve_stream
 
 class App(QMainWindow):
 
@@ -17,7 +18,7 @@ class App(QMainWindow):
         self.left = 10
         self.top = 20
         self.width = 1800
-        self.height = 800
+        self.height = 1000
         self.initUI()
 
     def initUI(self):
@@ -39,24 +40,21 @@ class App(QMainWindow):
 
 
 class PaintWidget(QWidget):
-    x = 0
-    y = 0
-    lastX = x
-    lastY = y
-    yOffset = 500
-    channelCount = 4
     xMargin = 100
-    xLimit = 5
-    # xlist = list(range(500)*40)
-    # ylist = [None] * 2000
-    samplingRate = 400
-    # dataBuffer = [0 for x in range(samplingRate)]
-    dataBuffer = np.zeros(shape=(channelCount,samplingRate))
-    # for i in range(2000):
-    #     dataBuffer[i] = sin(i) * 20
     idx = 0
     increment = 1
-    counter = 0
+
+    # first resolve an EEG stream on the lab network
+    print("looking for an EEG stream...")
+    streams = resolve_stream('name', 'ActiChamp-0')
+    # streams = resolve_stream('name', 'BioSemi')
+
+    # create a new inlet to read from the stream
+    inlet = StreamInlet(streams[0])
+    samplingRate = int(streams[0].nominal_srate())
+    channelCount = int(streams[0].channel_count())
+    timeStampsBuffer = np.zeros(shape=(channelCount,samplingRate))
+    dataBuffer = np.zeros(shape=(channelCount,samplingRate))
 
     def paintEvent(self, event):
         qp = QPainter(self)
@@ -64,35 +62,22 @@ class PaintWidget(QWidget):
         self.yOffset = self.size().height() / self.channelCount / 2
         channelHeight = self.size().height() / self.channelCount
 
-        # self.counter += 1
-        # if self.counter == 4:
-        #     self.increment = 1
-        #     self.counter = 0
-        # else:
-        #     self.increment = 0
-        self.idx = (self.idx + self.increment) % self.dataBuffer.shape[1]
+        # get a new sample (you can also omit the timestamp part if you're not
+        # interested in it)
+        chunk, timestamps = self.inlet.pull_chunk(max_samples=100)
+        if timestamps:
+            for c in range(len(timestamps)):
+                self.idx = (self.idx + self.increment) % self.dataBuffer.shape[1]
+                for m in range(self.channelCount):
+                    self.dataBuffer[m, self.idx] = chunk[c][m] * 10
 
         for m in range(self.channelCount):
-            self.dataBuffer[m, self.idx] = (sin(2.0 * math.pi * self.idx) + random.random()) * channelHeight / 3
             qp.drawText(10, m * channelHeight + self.yOffset, 'Channel {}'.format(m+1))
+
             for k in range(self.dataBuffer.shape[1]-1):
-                qp.drawLine(k * 4 + self.xMargin, self.dataBuffer[m, k] +
-                m * channelHeight + self.yOffset / 2, (k+1)*4 + self.xMargin, self.dataBuffer[m, k+1] + m * channelHeight + self.yOffset / 2)
-        # self.x = 0
-        # self.y = 0
-        # self.lastX = self.x
-        # self.lastY = self.y
+                qp.drawLine(k * 4 + self.xMargin, self.dataBuffer[m, k] + m * channelHeight + self.yOffset / 2, 
+                (k+1)*4 + self.xMargin, self.dataBuffer[m, k+1] + m * channelHeight + self.yOffset / 2)
 
-        # while self.x < self.xLimit:
-        #     qp.drawLine(self.lastX, self.lastY + self.yOffset, self.x, self.y + self.yOffset)
-        #     self.lastX = self.x
-        #     self.lastY = self.y
-        #     self.x = (self.x + 3)
-        #     self.y = sin(self.x) * 50
-
-        # self.xLimit += 1
-        # if self.xLimit >= size.width():
-        #     self.xLimit %= size.width()
         self.update()
 
 if __name__ == '__main__':
