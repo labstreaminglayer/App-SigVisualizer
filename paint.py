@@ -65,7 +65,7 @@ class PaintWidget(QWidget):
 
         # get a new sample (you can also omit the timestamp part if you're not
         # interested in it)
-        chunk, timestamps = self.inlet.pull_chunk(max_samples=100)
+        chunk, timestamps = self.inlet.pull_chunk(max_samples=self.samplingRate//4)
         if timestamps:
             for c in range(len(timestamps)):
                 self.idx = (self.idx + self.increment) % self.dataBuffer.shape[1]
