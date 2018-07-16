@@ -35,7 +35,7 @@ class App(QMainWindow):
         self.m.move(0,0)
         self.m.resize(self.width,self.height)
 
-        self.show()
+        self.showMaximized()
 
 
 class PaintWidget(QWidget):
