@@ -4,7 +4,6 @@ from PyQt5.QtGui import QPainter, QColor, QPen
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt
 import random
-import math
 from math import *
 import time
 import numpy as np
@@ -42,7 +41,7 @@ class App(QMainWindow):
 class PaintWidget(QWidget):
     xMargin = 100
     yMargin = 50
-    idx = 0
+    idx = -1
     chunkSize = 100
 
     # first resolve an EEG stream on the lab network
@@ -54,11 +53,12 @@ class PaintWidget(QWidget):
     inlet = StreamInlet(streams[0])
     samplingRate = int(streams[0].nominal_srate())
     channelCount = int(streams[0].channel_count())
-    samplesPerScreen = 400
+    samplesPerScreen = 500
     timeStampsBuffer = np.zeros(shape=(channelCount, samplesPerScreen))
     dataBuffer = np.zeros(shape=(channelCount, samplesPerScreen))
-    yScaling = 10
+    yScaling = 0.4
     xScaling = 1600 // samplesPerScreen
+    trend = [0 for x in range(channelCount)]
 
     def paintEvent(self, event):
         qp = QPainter(self)
@@ -83,14 +83,18 @@ class PaintWidget(QWidget):
                 for m in range(self.channelCount):
                     self.dataBuffer[m, self.idx] = chunk[c][m] * self.yScaling
 
+            if self.idx == self.chunkSize - 1:
+                for m in range(self.channelCount):
+                    self.trend[m] = np.mean(self.dataBuffer[m, 0:self.chunkSize])
+
         for m in range(self.channelCount):
             qp.drawText(10, m * channelHeight + self.yOffset + self.yMargin, 'Channel {}'.format(m+1))
 
             for k in range(self.dataBuffer.shape[1]-1):
                 qp.drawLine(k * self.xScaling + self.xMargin, 
-                self.dataBuffer[m, k] + m * channelHeight + self.yOffset / 2 + self.yMargin, 
+                self.dataBuffer[m, k] - self.trend[m] + m * channelHeight + self.yOffset / 2 + self.yMargin, 
                 (k+1)*self.xScaling + self.xMargin, 
-                self.dataBuffer[m, k+1] + m * channelHeight + self.yOffset / 2 + self.yMargin)
+                self.dataBuffer[m, k+1] - self.trend[m] + m * channelHeight + self.yOffset / 2 + self.yMargin)
 
         self.update()
 
