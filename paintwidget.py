@@ -14,11 +14,11 @@ class dataThread(QThread):
     updateRect = pyqtSignal(int)
     updateStreamNames = pyqtSignal(dict)
     sendSignalChunk = pyqtSignal(list)
-    chunkSize = 20
+    chunksPerScreen = 25
+    chunkSize = round(500 / chunksPerScreen)
     streams = []
     streamMetadata = {}
     chunkIdx = 0
-    chunksPerScreen = round(500 / chunkSize)
 
     def __init__(self, parent):
         super(dataThread, self).__init__(parent)
