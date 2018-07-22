@@ -10,22 +10,19 @@ import numpy as np
 from pylsl import StreamInlet, resolve_stream
 from Ui_SigVisualizer import Ui_MainWindow
 
-
 class dataThread(QThread):
-    update = pyqtSignal(int)
+    updateRect = pyqtSignal(int)
     updateStreamNames = pyqtSignal(dict)
-    data = np.zeros(shape=(10, 20))
+    sendSignalChunk = pyqtSignal(list)
+    chunkSize = 20
     streams = []
     streamMetadata = {}
     chunkIdx = 0
-    chunksPerScreen = 500 / data.shape[1]
+    chunksPerScreen = round(500 / chunkSize)
 
     def __init__(self, parent):
         super(dataThread, self).__init__(parent)
  
-    def updateRect(self, rect):
-        self.rect = rect
-
     def updateStreams(self):
         if not self.streams:
             self.streams = resolve_stream('name', 'ActiChamp-0')
@@ -38,25 +35,32 @@ class dataThread(QThread):
                 self.streamMetadata["channelCount"] = self.streams[0].channel_count()
         
                 self.updateStreamNames.emit(self.streamMetadata)
+                self.start()
 
     def run(self):
         while True:
-            for k in range(self.data.shape[0]):
-                for m in range(self.data.shape[1]):
-                    self.data[k, m] = random.randint(1, 20)
+            if self.streams:
+                chunk, timestamps = self.inlet.pull_chunk(max_samples=self.chunkSize)
+                if timestamps:
+                    # for k in range(len(self.data)):
+                    #     for m in range(len(self.data[0])):
+                    #         self.data[k][m] = random.randint(1, 20)
 
-            self.update.emit(self.chunkIdx)
+                    self.updateRect.emit(self.chunkIdx)
+                    self.sendSignalChunk.emit(chunk)
 
-            if self.chunkIdx < self.chunksPerScreen:
-                self.chunkIdx += 1
-            else:
-                self.chunkIdx = 0
-            time.sleep(1/self.chunksPerScreen)
+                    if self.chunkIdx < self.chunksPerScreen:
+                        self.chunkIdx += 1
+                    else:
+                        self.chunkIdx = 0
+                    time.sleep(1/self.chunksPerScreen)
 
 class PaintWidget(QWidget):
     idx = 0
     channelHeight = 0
     interval = 0
+    dataBuffer = []
+    lastY = []
 
     def __init__(self, widget):
         super().__init__()
@@ -66,32 +70,46 @@ class PaintWidget(QWidget):
         self.setPalette(pal)
 
         self.dataTr = dataThread(self)
-        self.dataTr.update.connect(self.updateRectRegion)
-        self.dataTr.start()
+        self.dataTr.updateRect.connect(self.updateRectRegion)
+        self.dataTr.sendSignalChunk.connect(self.getDataChunk)
+        # self.dataTr.start()
 
     def updateRectRegion(self, chunkIdx):
         self.idx = chunkIdx
-        self.update(self.idx * (self.width() / self.dataTr.chunksPerScreen), 
+        self.update(self.idx * (self.width() / self.dataTr.chunksPerScreen)- self.interval, 
         0,
         self.width() / self.dataTr.chunksPerScreen,
         self.height())
 
+    def getDataChunk(self, buffer):
+        self.dataBuffer = buffer
+
     def paintEvent(self, event):
-        self.channelHeight = self.height() / self.dataTr.data.shape[0]
+        if self.dataBuffer:
+            self.channelHeight = self.height() / len(self.dataBuffer[0])
 
-        painter = QPainter(self)
-        painter.setPen(QPen(QColor(79, 106, 25), 1, Qt.SolidLine,
-                            Qt.FlatCap, Qt.MiterJoin))
+            painter = QPainter(self)
+            painter.setPen(QPen(QColor(79, 106, 25), 1, Qt.SolidLine,
+                                Qt.FlatCap, Qt.MiterJoin))
 
-        self.interval = self.width() / self.dataTr.chunksPerScreen / self.dataTr.data.shape[1]
+            self.interval = self.width() / self.dataTr.chunksPerScreen / len(self.dataBuffer)
 
-        for k in range(self.dataTr.data.shape[0]):
-            for m in range(self.dataTr.data.shape[1] - 1):
-                painter.drawLine(m * self.interval + self.idx * (self.width() / self.dataTr.chunksPerScreen), 
-                self.dataTr.data[k, m] + (k + 0.5) * self.channelHeight,
-                (m + 1) * self.interval + self.idx * (self.width() / self.dataTr.chunksPerScreen),
-                self.dataTr.data[k, m+1] + (k + 0.5) * self.channelHeight)
+            scaling = 5
 
+            for k in range(len(self.dataBuffer[0])):
+                if self.lastY:
+                    painter.drawLine(self.idx * (self.width() / self.dataTr.chunksPerScreen) - self.interval, 
+                    self.lastY[k] * scaling + (k + 0.5) * self.channelHeight,
+                    self.idx * (self.width() / self.dataTr.chunksPerScreen),
+                    self.dataBuffer[0][k] * scaling + (k + 0.5) * self.channelHeight)
+
+                for m in range(len(self.dataBuffer) - 1):
+                    painter.drawLine(m * self.interval + self.idx * (self.width() / self.dataTr.chunksPerScreen), 
+                    self.dataBuffer[m][k] * scaling + (k + 0.5) * self.channelHeight,
+                    (m + 1) * self.interval + self.idx * (self.width() / self.dataTr.chunksPerScreen),
+                    self.dataBuffer[m+1][k] * scaling + (k + 0.5) * self.channelHeight)
+
+            self.lastY = self.dataBuffer[-1]
 
         # qp = QPainter(self)
         # qbrush = QBrush(Qt.white)
