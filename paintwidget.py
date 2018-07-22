@@ -7,12 +7,12 @@ from math import *
 import time
 import threading
 import numpy as np
-from pylsl import StreamInlet, resolve_stream
+from pylsl import StreamInlet, resolve_stream, resolve_streams
 from Ui_SigVisualizer import Ui_MainWindow
 
 class dataThread(QThread):
     updateRect = pyqtSignal(int)
-    updateStreamNames = pyqtSignal(dict)
+    updateStreamNames = pyqtSignal(dict, int)
     sendSignalChunk = pyqtSignal(list)
     chunksPerScreen = 25
     chunkSize = round(500 / chunksPerScreen)
@@ -25,16 +25,24 @@ class dataThread(QThread):
  
     def updateStreams(self):
         if not self.streams:
-            self.streams = resolve_stream('name', 'ActiChamp-0')
+            self.streams = resolve_streams(wait_time=1.0)
             
             if self.streams:
-                # create a new inlet to read from the stream
-                self.inlet = StreamInlet(self.streams[0])
+                defaultIdx = -1
 
-                self.streamMetadata["streamName"] = self.streams[0].name()
-                self.streamMetadata["channelCount"] = self.streams[0].channel_count()
-        
-                self.updateStreamNames.emit(self.streamMetadata)
+                for k in range(len(self.streams)):
+                    self.streamMetadata[k] = {
+                        "streamName": self.streams[k].name(),
+                        "channelCount": self.streams[k].channel_count(),
+                        "channelFormat": self.streams[k].channel_format(),
+                        "nominalSrate":self.streams[k].nominal_srate()
+                    }
+                    
+                    if self.streams[defaultIdx].channel_format() != "String" and defaultIdx == -1:
+                        defaultIdx = k
+
+                self.inlet = StreamInlet(self.streams[defaultIdx])
+                self.updateStreamNames.emit(self.streamMetadata, defaultIdx)
                 self.start()
 
     def run(self):
@@ -89,8 +97,10 @@ class PaintWidget(QWidget):
             self.channelHeight = self.height() / len(self.dataBuffer[0])
 
             painter = QPainter(self)
-            painter.setPen(QPen(QColor(79, 106, 25), 1, Qt.SolidLine,
-                                Qt.FlatCap, Qt.MiterJoin))
+            # painter.setPen(QPen(QColor(79, 106, 25), 1, Qt.SolidLine,
+            #                     Qt.FlatCap, Qt.MiterJoin))
+
+            painter.setPen(QPen(Qt.blue))
 
             self.interval = self.width() / self.dataTr.chunksPerScreen / len(self.dataBuffer)
 

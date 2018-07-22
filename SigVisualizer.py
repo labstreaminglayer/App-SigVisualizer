@@ -25,7 +25,6 @@ class SigVisualizer(QMainWindow):
 
         self.statusBar = QStatusBar()
         self.setStatusBar(self.statusBar)
-        self.statusBar.showMessage("Sampling rate: 500Hz")
 
         self.ui.toggleButton.setIcon(QIcon("icons/baseline-chevron_left-24px.svg"))
         self.ui.toggleButton.setIconSize(QSize(30, 30))
@@ -35,18 +34,20 @@ class SigVisualizer(QMainWindow):
         self.ui.updateButton.clicked.connect(self.ui.widget.dataTr.updateStreams)
         self.ui.widget.dataTr.updateStreamNames.connect(self.updateMetadataWidget)
 
-    def updateMetadataWidget(self, metadata):
-        item = QTreeWidgetItem(self.ui.treeWidget)
-        item.setText(0, metadata["streamName"])
+    def updateMetadataWidget(self, metadata, defaultIdx):
+        for k in range(len(metadata)):
+            item = QTreeWidgetItem(self.ui.treeWidget)
+            item.setText(0, metadata[k]["streamName"])
 
-        for k in range(metadata["channelCount"]):
-            channelItem = QTreeWidgetItem(item)
-            channelItem.setText(0, 'Channel {}'.format(k+1))
-            channelItem.setCheckState(0, Qt.Checked)
+            for m in range(metadata[k]["channelCount"]):
+                channelItem = QTreeWidgetItem(item)
+                channelItem.setText(0, 'Channel {}'.format(m+1))
+                channelItem.setCheckState(0, Qt.Checked)
 
-        self.ui.treeWidget.addTopLevelItem(item)
+            item.setExpanded(True if k == defaultIdx else False)
+            self.ui.treeWidget.addTopLevelItem(item)
         self.ui.treeWidget.setAnimated(True)
-        self.ui.treeWidget.expandAll()
+        self.statusBar.showMessage("Sampling rate: {}Hz".format(metadata[defaultIdx]["nominalSrate"]))
 
     def resizeEvent(self, event):
         self.resized.emit()
