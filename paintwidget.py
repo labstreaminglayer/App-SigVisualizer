@@ -46,14 +46,10 @@ class dataThread(QThread):
                 self.start()
 
     def run(self):
-        while True:
-            if self.streams:
-                chunk, timestamps = self.inlet.pull_chunk(max_samples=self.chunkSize)
+        if self.streams:
+            while True:
+                chunk, timestamps = self.inlet.pull_chunk(max_samples=self.chunkSize, timeout=1)
                 if timestamps:
-                    # for k in range(len(self.data)):
-                    #     for m in range(len(self.data[0])):
-                    #         self.data[k][m] = random.randint(1, 20)
-
                     self.updateRect.emit(self.chunkIdx)
                     self.sendSignalChunk.emit(chunk)
 
@@ -61,7 +57,6 @@ class dataThread(QThread):
                         self.chunkIdx += 1
                     else:
                         self.chunkIdx = 0
-                    time.sleep(1/self.chunksPerScreen)
 
 class PaintWidget(QWidget):
     idx = 0
