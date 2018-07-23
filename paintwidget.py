@@ -44,7 +44,7 @@ class dataThread(QThread):
                 self.chunkSize = round(self.nominal_srate / self.chunksPerScreen)
 
                 if self.downSampling:
-                    self.downSamplingRatio = 10
+                    self.downSamplingRatio = round(self.nominal_srate / 1000)
                     self.downSamplingBuffer = [[0 for m in range(int(self.streams[self.defaultIdx].channel_count()))] 
                     for n in range(round(self.chunkSize/self.downSamplingRatio))]
 
