@@ -44,9 +44,9 @@ class dataThread(QThread):
                 self.chunkSize = round(self.nominal_srate / self.chunksPerScreen)
 
                 if self.downSampling:
-                    self.downSamplingRatio = round(self.nominal_srate / 1000)
+                    self.downSamplingFactor = round(self.nominal_srate / 1000)
                     self.downSamplingBuffer = [[0 for m in range(int(self.streams[self.defaultIdx].channel_count()))] 
-                    for n in range(round(self.chunkSize/self.downSamplingRatio))]
+                    for n in range(round(self.chunkSize/self.downSamplingFactor))]
 
                 self.inlet = StreamInlet(self.streams[self.defaultIdx])
                 self.updateStreamNames.emit(self.streamMetadata, self.defaultIdx)
@@ -60,13 +60,13 @@ class dataThread(QThread):
 
                     if self.downSampling:
                         for k in range(int(self.streams[self.defaultIdx].channel_count())):
-                            for m in range(round(self.chunkSize/self.downSamplingRatio)):
-                                if m != round(self.chunkSize/self.downSamplingRatio):
-                                    endIdx = (m+1) * self.downSamplingRatio
+                            for m in range(round(self.chunkSize/self.downSamplingFactor)):
+                                if m != round(self.chunkSize/self.downSamplingFactor):
+                                    endIdx = (m+1) * self.downSamplingFactor
 
-                                    buf = [chunk[n][k] for n in range(m * self.downSamplingRatio, endIdx)]
+                                    buf = [chunk[n][k] for n in range(m * self.downSamplingFactor, endIdx)]
                                 else:
-                                    buf = [chunk[n][k] for n in range(m * self.downSamplingRatio, len(chunk))]
+                                    buf = [chunk[n][k] for n in range(m * self.downSamplingFactor, len(chunk))]
 
                                 self.downSamplingBuffer[m][k] = sum(buf) / len(buf)
 
