@@ -16,6 +16,7 @@ class SigVisualizer(QMainWindow):
         self.ui.setupUi(self)
         self.setWindowTitle('Real Time Signal Visualizer')
         self.ui.treeWidget.setHeaderLabel('Streams')
+        self.setWindowIcon(QIcon('sigvisualizer.ico'))
 
         self.statusBar = QStatusBar()
         self.setStatusBar(self.statusBar)
