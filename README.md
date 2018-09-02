@@ -1,3 +1,3 @@
 # SigVisualizer
 
-![image](sigvisualizer.png)
+![image](SigVisualizer_demo.gif)
