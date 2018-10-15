@@ -1,7 +1,7 @@
 from PyQt5.QtCore import QThread, Qt, pyqtSignal
 from PyQt5.QtGui import QPalette, QPainter, QPen
 from PyQt5.QtWidgets import QWidget
-from pylsl import StreamInlet, resolve_streams
+from pylsl import StreamInlet, resolve_streams, cf_string
 import math
 
 
@@ -35,7 +35,7 @@ class DataThread(QThread):
                     "ch_format": stream.channel_format(),
                     "srate": stream.nominal_srate()
                 })
-                if self.sig_strm_idx == -1 and stream.channel_format() not in ["String"]:
+                if self.sig_strm_idx == -1 and stream.channel_format() not in ["String", cf_string]:
                     self.sig_strm_idx = k
 
             if self.sig_strm_idx != -1:
