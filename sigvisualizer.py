@@ -24,31 +24,31 @@ class SigVisualizer(QMainWindow):
         self.ui.toggleButton.setIcon(QIcon("icons/chevron_left.svg"))
         self.ui.toggleButton.setIconSize(QSize(30, 30))
 
-        self.ui.toggleButton.clicked.connect(self.togglePanel)
+        self.ui.toggleButton.clicked.connect(self.toggle_panel)
         self.ui.updateButton.clicked.connect(
-            self.ui.widget.dataTr.updateStreams)
+            self.ui.widget.dataTr.update_streams)
         self.ui.widget.dataTr.updateStreamNames.connect(
-            self.updateMetadataWidget)
+            self.update_metadata_widget)
         self.panelHidden = False
 
-    def updateMetadataWidget(self, metadata, defaultIdx):
+    def update_metadata_widget(self, metadata, default_idx):
         for k in range(len(metadata)):
             item = QTreeWidgetItem(self.ui.treeWidget)
             item.setText(0, metadata[k]["name"])
 
             for m in range(metadata[k]["ch_count"]):
-                channelItem = QTreeWidgetItem(item)
-                channelItem.setText(0, 'Channel {}'.format(m+1))
-                channelItem.setCheckState(0, Qt.Checked)
+                channel_item = QTreeWidgetItem(item)
+                channel_item.setText(0, 'Channel {}'.format(m+1))
+                channel_item.setCheckState(0, Qt.Checked)
 
-            item.setExpanded(True if k == defaultIdx else False)
+            item.setExpanded(True if k == default_idx else False)
             self.ui.treeWidget.addTopLevelItem(item)
 
         self.ui.treeWidget.setAnimated(True)
         self.statusBar.showMessage(
-            "Sampling rate: {}Hz".format(metadata[defaultIdx]["srate"]))
+            "Sampling rate: {}Hz".format(metadata[default_idx]["srate"]))
 
-    def togglePanel(self):
+    def toggle_panel(self):
         if self.panelHidden:
             self.panelHidden = False
             self.ui.treeWidget.show()
