@@ -15,45 +15,42 @@ class DataThread(QThread):
         self.streams = []
         self.chunk_idx = 0
         self.seconds_per_screen = 2
-        self.metadata = None
+        self.metadata = []
         self.srate = None
         self.chunkSize = None
         self.downSampling = None
         self.downSamplingFactor = None
         self.downSamplingBuffer = None
         self.inlet = None
-        self.stream_idx = None
+        self.sig_strm_idx = None
 
     def update_streams(self):
         if not self.streams:
             self.streams = resolve_streams(wait_time=1.0)
+            self.sig_strm_idx = -1
+            for k, stream in enumerate(self.streams):
+                self.metadata.append({
+                    "name": stream.name(),
+                    "ch_count": stream.channel_count(),
+                    "ch_format": stream.channel_format(),
+                    "srate": stream.nominal_srate()
+                })
+                if self.sig_strm_idx == -1 and stream.channel_format() not in ["String"]:
+                    self.sig_strm_idx = k
 
-            if self.streams:
-                self.stream_idx = -1
-                self.metadata = [None] * len(self.streams) 
-
-                for k in range(len(self.streams)):
-                    self.metadata[k] = {
-                        "name": self.streams[k].name(),
-                        "ch_count": self.streams[k].channel_count(),
-                        "ch_format": self.streams[k].channel_format(),
-                        "srate": self.streams[k].nominal_srate()
-                    }
-
-                    if self.streams[k].channel_format() != "String" and self.stream_idx == -1:
-                        self.stream_idx = k
-
-                self.srate = int(self.streams[self.stream_idx].nominal_srate())
+            if self.sig_strm_idx != -1:
+                sig_stream = self.streams[self.sig_strm_idx]
+                self.srate = int(sig_stream.nominal_srate())
                 self.downSampling = False if self.srate <= 1000 else True
                 self.chunkSize = round(self.srate / self.chunksPerScreen * self.seconds_per_screen)
 
                 if self.downSampling:
                     self.downSamplingFactor = round(self.srate / 1000)
-                    self.downSamplingBuffer = [[0 for m in range(int(self.streams[self.stream_idx].channel_count()))]
+                    self.downSamplingBuffer = [[0 for m in range(int(sig_stream.channel_count()))]
                                                for n in range(round(self.chunkSize/self.downSamplingFactor))]
 
-                self.inlet = StreamInlet(self.streams[self.stream_idx])
-                self.updateStreamNames.emit(self.metadata, self.stream_idx)
+                self.inlet = StreamInlet(sig_stream)
+                self.updateStreamNames.emit(self.metadata, self.sig_strm_idx)
                 self.start()
 
     def run(self):
@@ -63,12 +60,11 @@ class DataThread(QThread):
                 if timestamps:
 
                     if self.downSampling:
-                        for k in range(int(self.streams[self.stream_idx].channel_count())):
+                        for k in range(int(self.streams[self.sig_strm_idx].channel_count())):
                             for m in range(round(self.chunkSize/self.downSamplingFactor)):
                                 end_idx = min((m+1) * self.downSamplingFactor, len(chunk))
                                 buf = [chunk[n][k] for n in range(m * self.downSamplingFactor, end_idx)]
                                 self.downSamplingBuffer[m][k] = sum(buf) / len(buf)
-
                         self.sendSignalChunk.emit(self.chunk_idx, self.downSamplingBuffer)
                     else:
                         self.sendSignalChunk.emit(self.chunk_idx, chunk)
