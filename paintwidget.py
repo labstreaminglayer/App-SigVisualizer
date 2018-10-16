@@ -218,4 +218,5 @@ class PaintWidget(QWidget):
             painter.setPen(QPen(Qt.red))
             for px, mrk in self.markerBuffer:
                 painter.drawLine(px, 0, px, self.height())
+                painter.drawText(px - 2 * self.px_per_samp, 0.95 * self.height(), mrk)
             self.markerBuffer = None
