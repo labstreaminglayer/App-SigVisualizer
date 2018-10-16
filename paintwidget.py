@@ -143,10 +143,11 @@ class PaintWidget(QWidget):
                     if self.t0 <= ts <= (self.t0 + self.dataTr.seconds_per_screen):
                         px_out.append((ts - self.t0) * px_per_sec)
                         ms_out.append(','.join(ms))
-            self.markerBuffer = zip(px_out, ms_out)
-
-            update_x0 = min(update_x0, min(px_out))
-            update_width = max(update_width, max([_ - update_x0 for _ in px_out]))
+            if any(px_out):
+                # Sometimes the marker might happen just off screen so we lose it.
+                self.markerBuffer = zip(px_out, ms_out)
+                update_x0 = min(update_x0, min(px_out))
+                update_width = max(update_width, max([_ - update_x0 for _ in px_out]))
 
         if any(sig_ts) and update_x0 == sig_ts[0]:
             update_x0 -= self.px_per_samp  # Offset to connect with previous sample
