@@ -71,16 +71,19 @@ class DataThread(QThread):
     def run(self):
         if self.streams:
             while True:
-                send_data, send_ts = self.inlet.pull_chunk(max_samples=self.chunkSize, timeout=1)
-                if send_ts and self.downSampling:
-                    for m in range(round(self.chunkSize / self.downSamplingFactor)):
-                        end_idx = min((m + 1) * self.downSamplingFactor, len(send_data))
-                        for ch_idx in range(int(self.streams[self.sig_strm_idx].channel_count())):
-                            buf = [send_data[n][ch_idx] for n in range(m * self.downSamplingFactor, end_idx)]
-                            self.downSamplingBuffer[m][ch_idx] = sum(buf) / len(buf)
-                    send_data = self.downSamplingBuffer
-
-                send_mrk_data, send_mrk_ts = self.mrk_inlet.pull_chunk()
+                send_ts, send_data = [], []
+                if self.inlet:
+                    send_data, send_ts = self.inlet.pull_chunk(max_samples=self.chunkSize, timeout=1)
+                    if send_ts and self.downSampling:
+                        for m in range(round(self.chunkSize / self.downSamplingFactor)):
+                            end_idx = min((m + 1) * self.downSamplingFactor, len(send_data))
+                            for ch_idx in range(int(self.streams[self.sig_strm_idx].channel_count())):
+                                buf = [send_data[n][ch_idx] for n in range(m * self.downSamplingFactor, end_idx)]
+                                self.downSamplingBuffer[m][ch_idx] = sum(buf) / len(buf)
+                        send_data = self.downSamplingBuffer
+                send_mrk_ts, send_mrk_data = [], []
+                if self.mrk_inlet:
+                    send_mrk_data, send_mrk_ts = self.mrk_inlet.pull_chunk()
 
                 if any([send_ts, send_mrk_ts]):
                     self.sendData.emit(send_ts, send_data, send_mrk_ts, send_mrk_data)
