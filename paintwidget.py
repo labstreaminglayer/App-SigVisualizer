@@ -3,6 +3,7 @@ from PyQt5.QtGui import QPalette, QPainter, QPen
 from PyQt5.QtWidgets import QWidget
 import pylsl
 import math
+import copy
 
 
 CHANNEL_Y_FILL = 0.7  # How much of the per-channel vertical space is filled.  > 1 will overlap the lines.
@@ -11,79 +12,86 @@ CHANNEL_Y_FILL = 0.7  # How much of the per-channel vertical space is filled.  >
 class DataThread(QThread):
     updateStreamNames = pyqtSignal(list, int)
     sendData = pyqtSignal(list, list, list, list)
+    changedStream = pyqtSignal()
+
+    def_stream_parms = {'chunk_idx': 0, 'metadata': {}, 'srate': None, 'chunkSize': None,
+                        'downSampling': None, 'downSamplingFactor': None, 'downSamplingBuffer': None,
+                        'inlet': None, 'stream_idx': None, 'is_marker': False}
 
     def __init__(self, parent):
         super().__init__(parent)
-        self.chunksPerScreen = 50
+        self.chunksPerScreen = 50  # For known sampling rate data, divide the screen into this many segments.
+        self.seconds_per_screen = 2  # Number of seconds per sweep
         self.streams = []
-        self.chunk_idx = 0
-        self.seconds_per_screen = 2
-        self.metadata = []
-        self.srate = None
-        self.chunkSize = None
-        self.downSampling = None
-        self.downSamplingFactor = None
-        self.downSamplingBuffer = None
-        self.inlet = None
-        self.mrk_inlet = None
-        self.sig_strm_idx = None
-        self.mrk_strm_idx = None
+        self.stream_params = []
+        self.sig_strm_idx = -1
+
+    def handle_stream_expanded(self, name):
+        stream_names = [_['metadata']['name'] for _ in self.stream_params]
+        self.sig_strm_idx = stream_names.index(name)
+        self.changedStream.emit()
 
     def update_streams(self):
         if not self.streams:
             self.streams = pylsl.resolve_streams(wait_time=1.0)
-            self.sig_strm_idx = -1
-            self.mrk_strm_idx = -1
             for k, stream in enumerate(self.streams):
-                self.metadata.append({
-                    "name": stream.name(),
+                n = stream.name()
+                stream_params = copy.deepcopy(self.def_stream_parms)
+                stream_params['metadata'].update({
+                    "name": n,
                     "ch_count": stream.channel_count(),
                     "ch_format": stream.channel_format(),
                     "srate": stream.nominal_srate()
                 })
-                if self.sig_strm_idx == -1 and stream.channel_format() not in ["String", pylsl.cf_string]:
-                    self.sig_strm_idx = k
-                if self.mrk_strm_idx == -1 and\
-                    stream.channel_format() in ["String", pylsl.cf_string] and\
-                        stream.nominal_srate() == pylsl.IRREGULAR_RATE:
-                    self.mrk_strm_idx = k
+                # ch = stream.desc().child("channels").child("channel")
+                # for ch_ix in range(stream.channel_count()):
+                #     print("  " + ch.child_value("label"))
+                #     ch = ch.next_sibling()
 
-            if self.mrk_strm_idx >= 0:
-                mrk_stream = self.streams[self.mrk_strm_idx]
-                self.mrk_inlet = pylsl.StreamInlet(mrk_stream)
+                stream_params['inlet'] = pylsl.StreamInlet(stream)
+                stream_params['is_marker'] = stream.channel_format() in ["String", pylsl.cf_string]\
+                                             and stream.nominal_srate() == pylsl.IRREGULAR_RATE
+                if not stream_params['is_marker']:
+                    if self.sig_strm_idx < 0:
+                        self.sig_strm_idx = k
+                    srate = stream.nominal_srate()
+                    stream_params['downSampling'] = srate > 1000
+                    stream_params['chunkSize'] = round(srate / self.chunksPerScreen * self.seconds_per_screen)
+                    if stream_params['downSampling']:
+                        stream_params['downSamplingFactor'] = round(srate / 1000)
+                        n_buff = round(stream_params['chunkSize'] / stream_params['downSamplingFactor'])
+                        stream_params['downSamplingBuffer'] = [[0] * int(stream.channel_count())] * n_buff
+                self.stream_params.append(stream_params)
 
-            if self.sig_strm_idx >= 0:
-                sig_stream = self.streams[self.sig_strm_idx]
-                self.srate = int(sig_stream.nominal_srate())
-                self.downSampling = False if self.srate <= 1000 else True
-                self.chunkSize = round(self.srate / self.chunksPerScreen * self.seconds_per_screen)
-                self.seconds_per_screen = self.chunksPerScreen * self.chunkSize / self.srate
-
-                if self.downSampling:
-                    self.downSamplingFactor = round(self.srate / 1000)
-                    self.downSamplingBuffer = [[0 for m in range(int(sig_stream.channel_count()))]
-                                               for n in range(round(self.chunkSize/self.downSamplingFactor))]
-
-                self.inlet = pylsl.StreamInlet(sig_stream)
-                self.updateStreamNames.emit(self.metadata, self.sig_strm_idx)
-                self.start()
+            self.updateStreamNames.emit([_['metadata'] for _ in self.stream_params], self.sig_strm_idx)
+            self.start()
 
     def run(self):
         if self.streams:
             while True:
                 send_ts, send_data = [], []
-                if self.inlet:
-                    send_data, send_ts = self.inlet.pull_chunk(max_samples=self.chunkSize, timeout=1)
-                    if send_ts and self.downSampling:
-                        for m in range(round(self.chunkSize / self.downSamplingFactor)):
-                            end_idx = min((m + 1) * self.downSamplingFactor, len(send_data))
+                if self.sig_strm_idx >= 0:
+                    params = self.stream_params[self.sig_strm_idx]
+                    inlet = params['inlet']
+                    pull_kwargs = {'timeout': 1}
+                    if params['chunkSize']:
+                        pull_kwargs['max_samples'] = params['chunkSize']
+                    send_data, send_ts = inlet.pull_chunk(**pull_kwargs)
+                    if send_ts and params['downSampling']:
+                        for m in range(round(params['chunkSize'] / params['downSamplingFactor'])):
+                            end_idx = min((m + 1) * params['downSamplingFactor'], len(send_data))
                             for ch_idx in range(int(self.streams[self.sig_strm_idx].channel_count())):
-                                buf = [send_data[n][ch_idx] for n in range(m * self.downSamplingFactor, end_idx)]
-                                self.downSamplingBuffer[m][ch_idx] = sum(buf) / len(buf)
-                        send_data = self.downSamplingBuffer
+                                buf = [send_data[n][ch_idx] for n in range(m * params['downSamplingFactor'], end_idx)]
+                                params['downSamplingBuffer'][m][ch_idx] = sum(buf) / len(buf)
+                        send_data = params['downSamplingBuffer']
                 send_mrk_ts, send_mrk_data = [], []
-                if self.mrk_inlet:
-                    send_mrk_data, send_mrk_ts = self.mrk_inlet.pull_chunk()
+                is_marker = [_['is_marker'] for _ in self.stream_params]
+                if any(is_marker):
+                    for stream_ix, params in enumerate(self.stream_params):
+                        if is_marker[stream_ix]:
+                            d, ts = params['inlet'].pull_chunk()
+                            send_mrk_data.extend(d)
+                            send_mrk_ts.extend(ts)
 
                 if any([send_ts, send_mrk_ts]):
                     self.sendData.emit(send_ts, send_data, send_mrk_ts, send_mrk_data)
@@ -93,6 +101,17 @@ class PaintWidget(QWidget):
 
     def __init__(self, widget):
         super().__init__()
+        self.reset()
+        pal = QPalette()
+        pal.setColor(QPalette.Background, Qt.white)
+        self.setAutoFillBackground(True)
+        self.setPalette(pal)
+
+        self.dataTr = DataThread(self)
+        self.dataTr.sendData.connect(self.get_data)
+        self.dataTr.changedStream.connect(self.reset)
+
+    def reset(self):
         self.chunk_idx = 0
         self.channelHeight = 0
         self.px_per_samp = 0
@@ -102,13 +121,6 @@ class PaintWidget(QWidget):
         self.scaling = []
         self.mean = []
         self.t0 = 0
-        pal = QPalette()
-        pal.setColor(QPalette.Background, Qt.white)
-        self.setAutoFillBackground(True)
-        self.setPalette(pal)
-
-        self.dataTr = DataThread(self)
-        self.dataTr.sendData.connect(self.get_data)
 
     def get_data(self, sig_ts, sig_buffer, marker_ts, marker_buffer):
         update_x0 = float(self.width())
