@@ -1,6 +1,6 @@
 import sys
 
-from PyQt5.QtCore import QSize, Qt
+from PyQt5.QtCore import QSize, Qt, pyqtSignal
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QStatusBar,
                              QTreeWidgetItem)
@@ -9,6 +9,7 @@ from ui_sigvisualizer import Ui_MainWindow
 
 
 class SigVisualizer(QMainWindow):
+    stream_expanded = pyqtSignal(str)
     
     def __init__(self):
         super().__init__()
@@ -31,17 +32,28 @@ class SigVisualizer(QMainWindow):
             self.update_metadata_widget)
         self.panelHidden = False
 
-    def update_metadata_widget(self, metadata, default_idx):
-        for k in range(len(metadata)):
-            item = QTreeWidgetItem(self.ui.treeWidget)
-            item.setText(0, metadata[k]["name"])
+        self.ui.treeWidget.itemExpanded.connect(self.tree_item_expanded)
+        self.stream_expanded.connect(self.ui.widget.dataTr.handle_stream_expanded)
 
-            for m in range(metadata[k]["ch_count"]):
+    def tree_item_expanded(self, widget_item):
+        name = widget_item.text(0)
+        for it_ix in range(self.ui.treeWidget.topLevelItemCount()):
+            item = self.ui.treeWidget.topLevelItem(it_ix)
+            if item.text(0) != name:
+                item.setExpanded(False)
+        self.stream_expanded.emit(name)
+
+    def update_metadata_widget(self, metadata, default_idx):
+        for s_ix, s_meta in enumerate(metadata):
+            item = QTreeWidgetItem(self.ui.treeWidget)
+            item.setText(0, s_meta["name"])
+
+            for m in range(s_meta["ch_count"]):
                 channel_item = QTreeWidgetItem(item)
                 channel_item.setText(0, 'Channel {}'.format(m+1))
                 channel_item.setCheckState(0, Qt.Checked)
 
-            item.setExpanded(True if k == default_idx else False)
+            item.setExpanded(True if s_ix == default_idx else False)
             self.ui.treeWidget.addTopLevelItem(item)
 
         self.ui.treeWidget.setAnimated(True)
