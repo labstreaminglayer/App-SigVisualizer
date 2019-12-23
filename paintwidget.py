@@ -130,10 +130,10 @@ class PaintWidget(QWidget):
         if any(sig_ts):
             if not self.mean:
                 self.mean = [0 for _ in range(len(sig_buffer[0]))]
-                self.scaling = [0 for _ in range(len(sig_buffer[0]))]
+                self.scaling = [1 for _ in range(len(sig_buffer[0]))]
             if self.chunk_idx == 0:
                 self.t0 = sig_ts[0]
-            self.dataBuffer = sig_buffer
+            self.dataBuffer = copy.deepcopy(sig_buffer)
             px_per_chunk = self.width() / self.dataTr.chunksPerScreen
             update_x0 = self.chunk_idx * px_per_chunk
             update_width = px_per_chunk
